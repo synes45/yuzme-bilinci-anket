@@ -84,9 +84,6 @@ export default function SurveyPage() {
               <Link href="/" className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 py-2 px-5 rounded-lg text-sm font-medium transition-colors">
                 Ana Sayfa
               </Link>
-              <Link href="/analysis" className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-5 rounded-lg text-sm font-medium transition-colors">
-                Sonuçları Gör
-              </Link>
             </div>
           </div>
         </div>
