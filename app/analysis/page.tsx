@@ -358,7 +358,7 @@ export default function AnalysisPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                       <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                       <YAxis domain={[0, 5]} ticks={[1,2,3,4,5]} tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                      <Tooltip labelFormatter={(l: any, p: any[]) => p?.[0]?.payload?.text || l} formatter={(v: any) => [v, 'Ortalama']} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb', boxShadow: 'none', maxWidth: 280 }} />
+                      <Tooltip labelFormatter={(l: any) => l} formatter={(v: any) => [v, 'Ortalama']} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb', boxShadow: 'none', maxWidth: 280 }} />
                       <Bar dataKey="avg" fill="#2563eb" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -397,7 +397,7 @@ export default function AnalysisPage() {
                     <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                     <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} unit="%" />
                     <Tooltip
-                      labelFormatter={(l: any, p: any[]) => p?.[0]?.payload?.text || l}
+                      labelFormatter={(l: any) => l}
                       formatter={(v: any) => [`%${v}`, 'Doğru oranı']}
                       contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb', boxShadow: 'none', maxWidth: 280 }}
                     />
