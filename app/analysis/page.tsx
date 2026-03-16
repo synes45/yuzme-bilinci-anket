@@ -246,7 +246,7 @@ export default function AnalysisPage() {
               </div>
 
               <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">🕑 Son Yanıtlar</h3>
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">🕑 Tüm Yanıtlar</h3>
                 <div className="space-y-2">
                   {[...responses].reverse().slice(0, 5).map((r, i) => {
                     const score = mcQuestions.filter(q => r.answers[q.id] === q.options.find(o => o.correct)!.id).length
@@ -259,6 +259,7 @@ export default function AnalysisPage() {
                           <span className="text-xs text-gray-500">{formatDate(r.submitted_at)}</span>
                         </div>
                         <div className="flex gap-3 text-xs text-gray-400">
+                          <span>⏱️ {r.duration_ms ? formatDuration(r.duration_ms) : "—"}</span>
                           <span>✅ {yesNoQuestions.filter(q => r.answers[q.id] === 'Evet').length}/5</span>
                           <span>⭐ {(scaleQuestions.reduce((s, q) => s + ((r.answers[q.id] as number) || 0), 0) / scaleQuestions.length).toFixed(1)}</span>
                           <span>🧠 {score}/{mcQuestions.length}</span>
