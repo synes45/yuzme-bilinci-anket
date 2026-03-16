@@ -6,8 +6,9 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, Legend,
 } from 'recharts'
-import { getAllResponses, SurveyResponse, clearAllData } from '@/storage'
-import { yesNoQuestions, scaleQuestions, mcQuestions, scaleLabels } from '@/questions'
+import { getAllResponses, SurveyResponse, clearAllData } from '@/lib/storage'
+import { useCallback } from 'react'
+import { yesNoQuestions, scaleQuestions, mcQuestions, scaleLabels } from '@/lib/questions'
 
 const YES_NO_COLORS = ['#2563eb', '#ef4444']
 
@@ -28,7 +29,7 @@ export default function AnalysisPage() {
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [activeTab, setActiveTab] = useState<'overview' | 'yesno' | 'scale' | 'knowledge' | 'trends'>('overview')
 
-  useEffect(() => { setResponses(getAllResponses()) }, [])
+  useEffect(() => { getAllResponses().then(setResponses) }, [])
 
   const total = responses.length
 
@@ -96,21 +97,21 @@ export default function AnalysisPage() {
   const totalYesPercent = Math.round((totalYes / (total * yesNoQuestions.length)) * 100)
   const avgKnowledgeScore = mcStats.reduce((sum, s) => sum + s.correctPercent, 0) / mcStats.length
 
-  const durations = responses.map(r => r.durationMs).filter(d => d > 0 && d < 30 * 60 * 1000)
+  const durations = responses.map(r => r.duration_ms).filter(d => d > 0 && d < 30 * 60 * 1000)
   const avgDuration = durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : null
   const minDuration = durations.length > 0 ? Math.min(...durations) : null
   const maxDuration = durations.length > 0 ? Math.max(...durations) : null
 
   const dailyCounts: Record<string, number> = {}
   responses.forEach(r => {
-    const day = new Date(r.submittedAt).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' })
+    const day = new Date(r.submitted_at).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' })
     dailyCounts[day] = (dailyCounts[day] || 0) + 1
   })
   const dailyData = Object.entries(dailyCounts).map(([date, count]) => ({ date, count }))
 
   const hourlyCounts: Record<number, number> = {}
   responses.forEach(r => {
-    const hour = new Date(r.submittedAt).getHours()
+    const hour = new Date(r.submitted_at).getHours()
     hourlyCounts[hour] = (hourlyCounts[hour] || 0) + 1
   })
   const hourlyData = Array.from({ length: 24 }, (_, h) => ({ hour: `${h}:00`, count: hourlyCounts[h] || 0 }))
@@ -144,12 +145,12 @@ export default function AnalysisPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h1 className="text-2xl font-semibold text-gray-800">📊 Anket Sonuçları</h1>
-                <p className="text-gray-400 text-sm mt-1">Son yanıt: {formatDate(responses[responses.length - 1].submittedAt)}</p>
+                <p className="text-gray-400 text-sm mt-1">Son yanıt: {formatDate(responses[responses.length - 1].submitted_at)}</p>
               </div>
               {showClearConfirm ? (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-red-500">Emin misiniz?</span>
-                  <button onClick={() => { clearAllData(); setResponses([]); setShowClearConfirm(false) }} className="bg-red-500 hover:bg-red-600 text-white py-2 px-3 rounded-lg text-xs font-medium transition-colors">Evet, Sil</button>
+                  <button onClick={() => { clearAllData().then(() => setResponses([])); setShowClearConfirm(false) }} className="bg-red-500 hover:bg-red-600 text-white py-2 px-3 rounded-lg text-xs font-medium transition-colors">Evet, Sil</button>
                   <button onClick={() => setShowClearConfirm(false)} className="bg-gray-100 hover:bg-gray-200 text-gray-600 py-2 px-3 rounded-lg text-xs font-medium transition-colors">İptal</button>
                 </div>
               ) : (
@@ -255,7 +256,7 @@ export default function AnalysisPage() {
                           <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center">
                             {responses.length - i}
                           </span>
-                          <span className="text-xs text-gray-500">{formatDate(r.submittedAt)}</span>
+                          <span className="text-xs text-gray-500">{formatDate(r.submitted_at)}</span>
                         </div>
                         <div className="flex gap-3 text-xs text-gray-400">
                           <span>✅ {yesNoQuestions.filter(q => r.answers[q.id] === 'Evet').length}/5</span>
@@ -512,7 +513,7 @@ export default function AnalysisPage() {
         </div>
 
         <div className="text-center text-xs text-gray-400 py-2">
-          Toplam {total} yanıt · Son: {formatDate(responses[responses.length - 1].submittedAt)}
+          Toplam {total} yanıt · Son: {formatDate(responses[responses.length - 1].submitted_at)}
         </div>
       </div>
     </div>

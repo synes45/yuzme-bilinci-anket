@@ -2,14 +2,16 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { yesNoQuestions, scaleQuestions, mcQuestions, scaleLabels, Answers } from '@/questions'
-import { saveResponse } from '@/storage'
+import { yesNoQuestions, scaleQuestions, mcQuestions, scaleLabels, Answers } from '@/lib/questions'
+import { saveResponse, hasCompleted, markCompleted } from '@/lib/storage'
 
 export default function SurveyPage() {
   const [answers, setAnswers] = useState<Answers>({})
   const [errors, setErrors] = useState<string[]>([])
   const [submitted, setSubmitted] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [startedAt] = useState(() => new Date().toISOString())
+  const [alreadyCompleted] = useState(() => hasCompleted())
 
   const totalQuestions = yesNoQuestions.length + scaleQuestions.length + mcQuestions.length
   const answeredCount = Object.keys(answers).length
@@ -20,7 +22,7 @@ export default function SurveyPage() {
     setErrors(prev => prev.filter(e => e !== id))
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     const missing: string[] = []
     yesNoQuestions.forEach(q => { if (!(q.id in answers)) missing.push(q.id) })
     scaleQuestions.forEach(q => { if (!(q.id in answers)) missing.push(q.id) })
@@ -30,8 +32,29 @@ export default function SurveyPage() {
       document.getElementById(missing[0])?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       return
     }
-    saveResponse(answers, startedAt)
+    setLoading(true)
+    await saveResponse(answers, startedAt)
+    markCompleted()
+    setLoading(false)
     setSubmitted(true)
+  }
+
+  if (alreadyCompleted) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden w-full max-w-2xl">
+          <div className="h-2 bg-blue-600" />
+          <div className="p-10 text-center">
+            <div className="text-5xl mb-4">🔒</div>
+            <h2 className="text-xl font-semibold text-gray-800 mb-2">Zaten Katıldınız</h2>
+            <p className="text-gray-500 text-sm mb-6">Bu anketi daha önce doldurdunuz. Her tarayıcıdan yalnızca bir kez katılım yapılabilir.</p>
+            <Link href="/analysis" className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-5 rounded-lg text-sm font-medium transition-colors">
+              Sonuçları Gör
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (submitted) {
@@ -58,6 +81,12 @@ export default function SurveyPage() {
               </p>
             </div>
             <div className="flex gap-3 justify-center">
+              <Link href="/" className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 py-2 px-5 rounded-lg text-sm font-medium transition-colors">
+                Ana Sayfa
+              </Link>
+              <Link href="/analysis" className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-5 rounded-lg text-sm font-medium transition-colors">
+                Sonuçları Gör
+              </Link>
             </div>
           </div>
         </div>
@@ -103,9 +132,7 @@ export default function SurveyPage() {
                   {['Evet', 'Hayır'].map(opt => (
                     <button key={opt} onClick={() => setAnswer(q.id, opt)}
                       className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
-                        answers[q.id] === opt
-                          ? 'border-blue-600 bg-blue-50 text-blue-600'
-                          : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                        answers[q.id] === opt ? 'border-blue-600 bg-blue-50 text-blue-600' : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
                       }`}>
                       <span className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 ${
                         answers[q.id] === opt ? 'border-blue-600 bg-blue-600' : 'border-gray-300'
@@ -136,7 +163,7 @@ export default function SurveyPage() {
                 </p>
                 {errors.includes(q.id) && <p className="text-xs text-red-500 mb-2">Bu soruyu cevaplandırın</p>}
                 <div className="block sm:hidden space-y-2">
-                  {[1, 2, 3, 4, 5].map(val => (
+                  {[1,2,3,4,5].map(val => (
                     <button key={val} onClick={() => setAnswer(q.id, val)}
                       className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg border text-sm transition-all ${
                         answers[q.id] === val ? 'border-blue-600 bg-blue-50 text-blue-600' : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
@@ -153,7 +180,7 @@ export default function SurveyPage() {
                 </div>
                 <div className="hidden sm:block">
                   <div className="flex gap-2">
-                    {[1, 2, 3, 4, 5].map(val => (
+                    {[1,2,3,4,5].map(val => (
                       <button key={val} onClick={() => setAnswer(q.id, val)}
                         className={`flex-1 py-3 rounded-lg border text-sm font-semibold transition-all ${
                           answers[q.id] === val ? 'border-blue-600 bg-blue-50 text-blue-600' : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
@@ -211,9 +238,9 @@ export default function SurveyPage() {
           {errors.length > 0 && (
             <p className="text-sm text-red-500 mb-4">⚠️ {errors.length} soru cevaplanmamış. Lütfen tüm soruları yanıtlayın.</p>
           )}
-          <button onClick={handleSubmit}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium text-sm transition-colors">
-            Anketi Gönder
+          <button onClick={handleSubmit} disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-3 rounded-lg font-medium text-sm transition-colors">
+            {loading ? 'Kaydediliyor...' : 'Anketi Gönder'}
           </button>
           <p className="text-xs text-gray-400 text-center mt-3">Cevaplarınız anonim olarak kaydedilecektir.</p>
         </div>
