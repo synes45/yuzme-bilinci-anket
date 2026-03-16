@@ -27,11 +27,13 @@ function formatDate(iso: string) {
 export default function AnalysisPage() {
   const [responses, setResponses] = useState<SurveyResponse[]>([])
   const [showClearConfirm, setShowClearConfirm] = useState(false)
+  const [filterFast, setFilterFast] = useState(false)
   const [activeTab, setActiveTab] = useState<'overview' | 'yesno' | 'scale' | 'knowledge' | 'trends'>('overview')
 
   useEffect(() => { getAllResponses().then(setResponses) }, [])
 
-  const total = responses.length
+  const filteredResponses = filterFast ? responses.filter(r => r.duration_ms >= 60000) : responses
+  const total = filteredResponses.length
 
   if (total === 0) {
     return (
@@ -53,7 +55,7 @@ export default function AnalysisPage() {
 
   // Evet/Hayır
   const ynStats = yesNoQuestions.map(q => {
-    const yes = responses.filter(r => r.answers[q.id] === 'Evet').length
+    const yes = filteredResponses.filter(r => r.answers[q.id] === 'Evet').length
     const no = total - yes
     return {
       id: q.id, text: q.text, yes, no,
@@ -66,7 +68,7 @@ export default function AnalysisPage() {
   // Likert
   const scaleStats = scaleQuestions.map(q => {
     const counts = [0, 0, 0, 0, 0]
-    responses.forEach(r => {
+    filteredResponses.forEach(r => {
       const val = r.answers[q.id] as number
       if (val >= 1 && val <= 5) counts[val - 1]++
     })
@@ -81,12 +83,12 @@ export default function AnalysisPage() {
   // Çoktan seçmeli
   const mcStats = mcQuestions.map(q => {
     const correctOption = q.options.find(o => o.correct)!
-    const correctCount = responses.filter(r => r.answers[q.id] === correctOption.id).length
+    const correctCount = filteredResponses.filter(r => r.answers[q.id] === correctOption.id).length
     const correctPercent = Math.round((correctCount / total) * 100)
     const optionCounts = q.options.map(opt => ({
       label: opt.id.slice(-1).toUpperCase(),
       text: opt.text,
-      count: responses.filter(r => r.answers[q.id] === opt.id).length,
+      count: filteredResponses.filter(r => r.answers[q.id] === opt.id).length,
       correct: opt.correct,
     }))
     return { id: q.id, text: q.text, correctCount, correctPercent, optionCounts, correctOption }
@@ -97,26 +99,26 @@ export default function AnalysisPage() {
   const totalYesPercent = Math.round((totalYes / (total * yesNoQuestions.length)) * 100)
   const avgKnowledgeScore = mcStats.reduce((sum, s) => sum + s.correctPercent, 0) / mcStats.length
 
-  const durations = responses.map(r => r.duration_ms).filter(d => d > 0 && d < 30 * 60 * 1000)
+  const durations = filteredResponses.map(r => r.duration_ms).filter(d => d > 0 && d < 30 * 60 * 1000)
   const avgDuration = durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : null
   const minDuration = durations.length > 0 ? Math.min(...durations) : null
   const maxDuration = durations.length > 0 ? Math.max(...durations) : null
 
   const dailyCounts: Record<string, number> = {}
-  responses.forEach(r => {
+  filteredResponses.forEach(r => {
     const day = new Date(r.submitted_at).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' })
     dailyCounts[day] = (dailyCounts[day] || 0) + 1
   })
   const dailyData = Object.entries(dailyCounts).map(([date, count]) => ({ date, count }))
 
   const hourlyCounts: Record<number, number> = {}
-  responses.forEach(r => {
+  filteredResponses.forEach(r => {
     const hour = new Date(r.submitted_at).getHours()
     hourlyCounts[hour] = (hourlyCounts[hour] || 0) + 1
   })
   const hourlyData = Array.from({ length: 24 }, (_, h) => ({ hour: `${h}:00`, count: hourlyCounts[h] || 0 }))
 
-  const trendData = responses.map((r, i) => {
+  const trendData = filteredResponses.map((r, i) => {
     const scaleAvg = scaleQuestions.reduce((sum, q) => sum + ((r.answers[q.id] as number) || 0), 0) / scaleQuestions.length
     const yesCount = yesNoQuestions.filter(q => r.answers[q.id] === 'Evet').length
     const knowledgeScore = mcQuestions.filter(q => {
@@ -146,6 +148,12 @@ export default function AnalysisPage() {
               <div>
                 <h1 className="text-2xl font-semibold text-gray-800">📊 Anket Sonuçları</h1>
                 <p className="text-gray-400 text-sm mt-1">Son yanıt: {formatDate(responses[responses.length - 1].submitted_at)}</p>
+              <div className="flex items-center gap-2 mt-2">
+                <button onClick={() => setFilterFast(f => !f)} className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${filterFast ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-500 border-gray-200 hover:border-orange-300'}`}>
+                  {filterFast ? "⚡ Hızlı yanıtlar gizlendi" : "⚡ Hızlı yanıtları gizle (<1 dk)"}
+                </button>
+                {filterFast && <span className="text-xs text-gray-400">{responses.length - filteredResponses.length} yanıt gizlendi</span>}
+              </div>
               </div>
               {showClearConfirm ? (
                 <div className="flex items-center gap-2">
