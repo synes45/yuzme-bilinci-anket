@@ -48,9 +48,6 @@ export default function SurveyPage() {
             <div className="text-5xl mb-4">🔒</div>
             <h2 className="text-xl font-semibold text-gray-800 mb-2">Zaten Katıldınız</h2>
             <p className="text-gray-500 text-sm mb-6">Bu anketi daha önce doldurdunuz. Her tarayıcıdan yalnızca bir kez katılım yapılabilir.</p>
-            <Link href="/analysis" className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-5 rounded-lg text-sm font-medium transition-colors">
-              Sonuçları Gör
-            </Link>
           </div>
         </div>
       </div>
