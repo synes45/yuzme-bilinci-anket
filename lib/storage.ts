@@ -34,7 +34,7 @@ export function hasCompleted(): boolean {
 
 export const markCompleted = () => localStorage.setItem('swimming_survey_completed', 'true');
 
-export const clearAllData = () => {
+export const clearAllData = async () => {
     if (typeof window !== 'undefined') {
         localStorage.removeItem(COMPLETED_KEY);
     }
