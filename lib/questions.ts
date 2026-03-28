@@ -26,7 +26,7 @@ export const mcQuestions: MultipleChoiceQuestion[] = [
     text: 'Suda boğulma tehlikesi yaşayan bir kişi genellikle nasıl görünür?',
     options: [
       { id: 'mc1a', text: 'El sallayarak ve yüksek sesle yardım isteyerek.', correct: false },
-      { id: 'mc1b', text: 'Kollarını yanlara açarak suyun üzerinde kalmaya çalışır ve sessizdir.', correct: true },
+      { id: 'mc1b', text: 'Düzensin haraketlerle suyun yüzeyinde kalmaya çalışır.', correct: true },
       { id: 'mc1c', text: 'Sırtüstü yatarak dinlenmeye çalışır.', correct: false },
     ]
   },
@@ -35,7 +35,7 @@ export const mcQuestions: MultipleChoiceQuestion[] = [
     text: 'Çocukların su kenarında güvenliğini sağlamak için en etkili önlem hangisidir?',
     options: [
       { id: 'mc2a', text: 'Sadece kolluk veya simit takmak.', correct: false },
-      { id: 'mc2b', text: 'Bir yetişkinin kol mesafesinde ve kesintisiz gözetimi.', correct: true },
+      { id: 'mc2b', text: 'Yüzme bilse bile yetişkinin gözetiminde.', correct: true },
       { id: 'mc2c', text: 'Çocuğa çok iyi yüzme öğretmek.', correct: false },
     ]
   },
@@ -45,7 +45,7 @@ export const mcQuestions: MultipleChoiceQuestion[] = [
     options: [
       { id: 'mc3a', text: 'Karnına bastırarak yuttuğu suyu çıkarmaya çalışmak.', correct: false },
       { id: 'mc3b', text: 'Hemen temel yaşam desteğine başlamak.', correct: true },
-      { id: 'mc3c', text: 'Kişiyi ters çevirip sırtına vurmak.', correct: false },
+      { id: 'mc3c', text: 'Hava yolunu açmak.', correct: false },
     ]
   },
   {
@@ -70,8 +70,8 @@ export const mcQuestions: MultipleChoiceQuestion[] = [
     id: 'mc6', type: 'mc',
     text: 'Sığ sulara (derinliği bilinmeyen) balıklama atlamanın en büyük riski nedir?',
     options: [
-      { id: 'mc6a', text: 'Kulak zarının zarar görmesi.', correct: false },
-      { id: 'mc6b', text: 'Boyun kırılması ve kalıcı felç.', correct: true },
+      { id: 'mc6a', text: 'Ani su yutulmasına bağlı boğulma refleksi.', correct: false },
+      { id: 'mc6b', text: 'Boyun ve omurilikte hasar..', correct: true },
       { id: 'mc6c', text: 'Kulak zarının patlaması.', correct: false },
     ]
   },
