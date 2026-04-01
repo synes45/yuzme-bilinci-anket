@@ -1,41 +1,41 @@
-import { SurveyResponse, saveResponseToDB, getAllResponsesFromDB, clearAllFromDB } from './appwrite';
+// lib/storage.ts
 
-export type { SurveyResponse };
+export async function saveResponse(
+    answers: Record<string, string | number>, 
+    startedAt: string,
+    age: string,
+    gender: string
+): Promise<void> {
+    try {
+        const submitted_at = new Date().toISOString();
+        const duration_ms = new Date(submitted_at).getTime() - new Date(startedAt).getTime();
 
-const COMPLETED_KEY = 'swimming_survey_completed';
-
-export async function saveResponse(answers: Record<string, string | number>, startedAt: string): Promise<void> {
-    const submitted_at = new Date().toISOString();
-    const duration_ms = new Date(submitted_at).getTime() - new Date(startedAt).getTime();
-
-    const response: SurveyResponse = {
-        answers,
-        started_at: startedAt,
-        submitted_at,
-        duration_ms,
-    };
-
-    await saveResponseToDB(response);
-    localStorage.setItem(COMPLETED_KEY, 'true');
+        // LocalStorage işlemleri (Tarayıcıda saklamak istersen)
+        const responseData = {
+            answers,
+            started_at: startedAt,
+            submitted_at,
+            duration_ms,
+            age,
+            gender
+        };
+        
+        localStorage.setItem('survey_response', JSON.stringify(responseData));
+        
+    } catch (error) {
+        console.error("Storage error:", error);
+        throw error; // Hatayı yukarı fırlat ki sayfa hata olduğunu anlasın
+    }
 }
 
-export async function getAllResponses(): Promise<SurveyResponse[]> {
-    return getAllResponsesFromDB();
-}
-
-export async function clearAllResponses(): Promise<void> {
-    await clearAllFromDB();
-}
-
+// Bunlar zaten sende vardır, dokunmana gerek yok:
 export function hasCompleted(): boolean {
     if (typeof window === 'undefined') return false;
-    return localStorage.getItem(COMPLETED_KEY) === 'true';
+    return localStorage.getItem('survey_completed') === 'true';
 }
 
-export const markCompleted = () => localStorage.setItem('swimming_survey_completed', 'true');
-
-export const clearAllData = async () => {
+export function markCompleted(): void {
     if (typeof window !== 'undefined') {
-        localStorage.removeItem(COMPLETED_KEY);
+        localStorage.setItem('survey_completed', 'true');
     }
-};
+}

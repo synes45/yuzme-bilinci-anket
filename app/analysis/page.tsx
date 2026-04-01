@@ -6,11 +6,11 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, Legend,
 } from 'recharts'
-import { getAllResponses, SurveyResponse, clearAllData } from '@/lib/storage'
-import { useCallback } from 'react'
+import { getAllResponsesFromDB as getAllResponses, type SurveyResponse } from '@/lib/appwrite'
 import { yesNoQuestions, scaleQuestions, mcQuestions, scaleLabels } from '@/lib/questions'
 
 const YES_NO_COLORS = ['#2563eb', '#ef4444']
+const DEMO_COLORS = ['#ec4899', '#3b82f6', '#10b981', '#f59e0b']
 
 function formatDuration(ms: number) {
   if (ms < 60000) return `${Math.round(ms / 1000)} sn`
@@ -28,7 +28,7 @@ export default function AnalysisPage() {
   const [responses, setResponses] = useState<SurveyResponse[]>([])
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [filterFast, setFilterFast] = useState(false)
-  const [activeTab, setActiveTab] = useState<'overview' | 'yesno' | 'scale' | 'knowledge' | 'trends'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'demographics' | 'yesno' | 'scale' | 'knowledge' | 'trends'>('overview')
 
   useEffect(() => { getAllResponses().then(setResponses) }, [])
 
@@ -53,7 +53,18 @@ export default function AnalysisPage() {
     )
   }
 
-  // Evet/Hayır
+  // --- Demografi Hesaplamaları ---
+  const ages = filteredResponses.map(r => r.demographics?.age).filter(Boolean) as number[]
+  const avgAge = ages.length > 0 ? ages.reduce((a, b) => a + b, 0) / ages.length : 0
+
+  const genderCounts: Record<string, number> = {}
+  filteredResponses.forEach(r => {
+    const g = r.demographics?.gender || 'Belirtilmemiş'
+    genderCounts[g] = (genderCounts[g] || 0) + 1
+  })
+  const genderData = Object.entries(genderCounts).map(([name, value]) => ({ name, value }))
+
+  // --- Diğer İstatistikler ---
   const ynStats = yesNoQuestions.map(q => {
     const yes = filteredResponses.filter(r => r.answers[q.id] === 'Evet').length
     const no = total - yes
@@ -65,7 +76,6 @@ export default function AnalysisPage() {
     }
   })
 
-  // Likert
   const scaleStats = scaleQuestions.map(q => {
     const counts = [0, 0, 0, 0, 0]
     filteredResponses.forEach(r => {
@@ -80,7 +90,6 @@ export default function AnalysisPage() {
     return { id: q.id, text: q.text, avg, barData, counts }
   })
 
-  // Çoktan seçmeli
   const mcStats = mcQuestions.map(q => {
     const correctOption = q.options.find(o => o.correct)!
     const correctCount = filteredResponses.filter(r => r.answers[q.id] === correctOption.id).length
@@ -95,8 +104,6 @@ export default function AnalysisPage() {
   })
 
   const overallAvg = scaleStats.reduce((sum, s) => sum + s.avg, 0) / scaleStats.length
-  const totalYes = ynStats.reduce((sum, s) => sum + s.yes, 0)
-  const totalYesPercent = Math.round((totalYes / (total * yesNoQuestions.length)) * 100)
   const avgKnowledgeScore = mcStats.reduce((sum, s) => sum + s.correctPercent, 0) / mcStats.length
 
   const durations = filteredResponses.map(r => r.duration_ms).filter(d => d > 0 && d < 30 * 60 * 1000)
@@ -130,6 +137,7 @@ export default function AnalysisPage() {
 
   const tabs = [
     { id: 'overview', label: '📋 Genel' },
+    { id: 'demographics', label: '👥 Demografi' },
     { id: 'yesno', label: '✅ Evet/Hayır' },
     { id: 'scale', label: '⭐ Likert' },
     { id: 'knowledge', label: '🧠 Bilgi' },
@@ -140,6 +148,7 @@ export default function AnalysisPage() {
     <div className="min-h-screen bg-gray-100 py-8 px-4">
       <div className="max-w-4xl mx-auto space-y-4">
 
+        {/* Header */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="h-2 bg-blue-600" />
           <div className="p-6">
@@ -148,17 +157,17 @@ export default function AnalysisPage() {
               <div>
                 <h1 className="text-2xl font-semibold text-gray-800">📊 Anket Sonuçları</h1>
                 <p className="text-gray-400 text-sm mt-1">Son yanıt: {formatDate(responses[responses.length - 1].submitted_at)}</p>
-              <div className="flex items-center gap-2 mt-2">
-                <button onClick={() => setFilterFast(f => !f)} className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${filterFast ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-500 border-gray-200 hover:border-orange-300'}`}>
-                  {filterFast ? "⚡ Hızlı yanıtlar gizlendi" : "⚡ Hızlı yanıtları gizle (<1 dk)"}
-                </button>
-                {filterFast && <span className="text-xs text-gray-400">{responses.length - filteredResponses.length} yanıt gizlendi</span>}
-              </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <button onClick={() => setFilterFast(f => !f)} className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${filterFast ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-500 border-gray-200 hover:border-orange-300'}`}>
+                    {filterFast ? "⚡ Hızlı yanıtlar gizlendi" : "⚡ Hızlı yanıtları gizle (<1 dk)"}
+                  </button>
+                  {filterFast && <span className="text-xs text-gray-400">{responses.length - filteredResponses.length} yanıt gizlendi</span>}
+                </div>
               </div>
               {showClearConfirm ? (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-red-500">Emin misiniz?</span>
-                  <button onClick={() => { clearAllData().then(() => setResponses([])); setShowClearConfirm(false) }} className="bg-red-500 hover:bg-red-600 text-white py-2 px-3 rounded-lg text-xs font-medium transition-colors">Evet, Sil</button>
+                  <button onClick={() => { /* clearAllData logic */ setShowClearConfirm(false) }} className="bg-red-500 hover:bg-red-600 text-white py-2 px-3 rounded-lg text-xs font-medium transition-colors">Evet, Sil</button>
                   <button onClick={() => setShowClearConfirm(false)} className="bg-gray-100 hover:bg-gray-200 text-gray-600 py-2 px-3 rounded-lg text-xs font-medium transition-colors">İptal</button>
                 </div>
               ) : (
@@ -173,10 +182,11 @@ export default function AnalysisPage() {
           </div>
         </div>
 
+        {/* Stats Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: 'Toplam Yanıt', value: total, icon: '👥', color: 'text-blue-600' },
-            { label: 'Ort. Katılım', value: `${overallAvg.toFixed(1)}/5`, icon: '⭐', color: 'text-yellow-500' },
+            { label: 'Yaş Ortalaması', value: avgAge > 0 ? Math.round(avgAge) : '—', icon: '🎂', color: 'text-pink-500' },
             { label: 'Bilgi Skoru', value: `%${Math.round(avgKnowledgeScore)}`, icon: '🧠', color: 'text-green-600' },
             { label: 'Ort. Süre', value: avgDuration ? formatDuration(avgDuration) : 'N/A', icon: '⏱️', color: 'text-purple-600' },
           ].map(card => (
@@ -188,6 +198,7 @@ export default function AnalysisPage() {
           ))}
         </div>
 
+        {/* Tabs Content */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="flex border-b border-gray-100 overflow-x-auto">
             {tabs.map(tab => (
@@ -200,7 +211,7 @@ export default function AnalysisPage() {
             ))}
           </div>
 
-          {/* GENEL */}
+          {/* GENEL SEKMESİ */}
           {activeTab === 'overview' && (
             <div className="p-6 space-y-6">
               <div>
@@ -254,7 +265,7 @@ export default function AnalysisPage() {
               </div>
 
               <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">🕑 Tüm Yanıtlar</h3>
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">🕑 Son 5 Yanıt Özet</h3>
                 <div className="space-y-2">
                   {[...responses].reverse().slice(0, 5).map((r, i) => {
                     const score = mcQuestions.filter(q => r.answers[q.id] === q.options.find(o => o.correct)!.id).length
@@ -269,7 +280,6 @@ export default function AnalysisPage() {
                         <div className="flex gap-3 text-xs text-gray-400">
                           <span>⏱️ {r.duration_ms ? formatDuration(r.duration_ms) : "—"}</span>
                           <span>✅ {yesNoQuestions.filter(q => r.answers[q.id] === 'Evet').length}/5</span>
-                          <span>⭐ {(scaleQuestions.reduce((s, q) => s + ((r.answers[q.id] as number) || 0), 0) / scaleQuestions.length).toFixed(1)}</span>
                           <span>🧠 {score}/{mcQuestions.length}</span>
                         </div>
                       </div>
@@ -280,20 +290,62 @@ export default function AnalysisPage() {
             </div>
           )}
 
-          {/* EVET/HAYIR */}
+          {/* DEMOGRAFİ SEKMESİ */}
+          {activeTab === 'demographics' && (
+            <div className="p-6 space-y-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 items-center">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-4">🚻 Cinsiyet Dağılımı</h3>
+                    <div className="h-56">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={genderData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" paddingAngle={5}>
+                            {genderData.map((entry, idx) => {
+                              let cellColor = '#9ca3af'; // Bilinmiyor -> Gri
+                              if (entry.name === 'Kadın') cellColor = '#ec4899'; // Kadın -> Pembe
+                              if (entry.name === 'Erkek') cellColor = '#3b82f6'; // Erkek -> Mavi
+                              return <Cell key={idx} fill={cellColor} />;
+                            })}
+                          </Pie>
+                          <Tooltip />
+                          <Legend verticalAlign="bottom" height={36}/>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-4">📊 Yaş Grupları</h3>
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                       {Object.entries(
+                          filteredResponses.reduce((acc: any, r) => {
+                            const age = r.demographics?.age || 'Belirtilmemiş';
+                            acc[age] = (acc[age] || 0) + 1;
+                            return acc;
+                          }, {})
+                       ).sort((a,b) => Number(a[0]) - Number(b[0])).map(([age, count]: any) => (
+                          <div key={age} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-100">
+                             <span className="text-sm text-gray-600 font-medium">
+                               {age === 'Belirtilmemiş' ? age : `${age} Yaş`}
+                             </span>
+                             <span className="text-sm text-blue-600 font-bold">{count} Kişi</span>
+                          </div>
+                       ))}
+                    </div>
+                  </div>
+                </div>
+            </div>
+          )}
+
+          {/* EVET/HAYIR SEKMESİ */}
           {activeTab === 'yesno' && (
             <div className="divide-y divide-gray-50">
               {ynStats.map((stat, i) => (
                 <div key={stat.id} className="p-6">
-                  <p className="text-sm font-medium text-gray-700 mb-4">
-                    <span className="text-gray-400 mr-2">{i + 1}.</span>{stat.text}
-                  </p>
+                  <p className="text-sm font-medium text-gray-700 mb-4"><span className="text-gray-400 mr-2">{i + 1}.</span>{stat.text}</p>
                   <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
                     <div className="flex-1 w-full space-y-2">
-                      {[
-                        { label: 'Evet', count: stat.yes, percent: stat.yesPercent, color: 'bg-blue-600' },
-                        { label: 'Hayır', count: stat.no, percent: stat.noPercent, color: 'bg-red-500' },
-                      ].map(row => (
+                      {[{ label: 'Evet', count: stat.yes, percent: stat.yesPercent, color: 'bg-blue-600' },
+                        { label: 'Hayır', count: stat.no, percent: stat.noPercent, color: 'bg-red-500' }].map(row => (
                         <div key={row.label} className="flex items-center gap-3">
                           <span className="text-xs text-gray-500 w-10 text-right">{row.label}</span>
                           <div className="flex-1 bg-gray-100 rounded-full h-6 overflow-hidden">
@@ -301,7 +353,7 @@ export default function AnalysisPage() {
                               {row.percent > 10 && <span className="text-xs text-white font-medium">%{row.percent}</span>}
                             </div>
                           </div>
-                          <span className="text-xs font-medium text-gray-600 w-20">{row.count} kişi {row.percent <= 10 ? `(%${row.percent})` : ''}</span>
+                          <span className="text-xs font-medium text-gray-600 w-20">{row.count} kişi</span>
                         </div>
                       ))}
                     </div>
@@ -320,27 +372,18 @@ export default function AnalysisPage() {
             </div>
           )}
 
-          {/* LİKERT */}
+          {/* LİKERT SEKMESİ */}
           {activeTab === 'scale' && (
             <div className="divide-y divide-gray-50">
               {scaleStats.map((stat, i) => (
                 <div key={stat.id} className="p-6">
                   <div className="flex items-start justify-between mb-4 gap-4">
-                    <p className="text-sm font-medium text-gray-700">
-                      <span className="text-gray-400 mr-2">{yesNoQuestions.length + i + 1}.</span>{stat.text}
-                    </p>
-                    <div className="flex-shrink-0 text-right">
-                      <span className="text-lg font-bold text-blue-600">{stat.avg.toFixed(2)}</span>
-                      <span className="text-xs text-gray-400 block">/5 ort.</span>
-                    </div>
+                    <p className="text-sm font-medium text-gray-700"><span className="text-gray-400 mr-2">{yesNoQuestions.length + i + 1}.</span>{stat.text}</p>
+                    <div className="flex-shrink-0 text-right"><span className="text-lg font-bold text-blue-600">{stat.avg.toFixed(2)}</span><span className="text-xs text-gray-400 block">/5 ort.</span></div>
                   </div>
                   <div className="mb-4">
-                    <div className="flex justify-between text-xs text-gray-400 mb-1">
-                      <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
-                    </div>
-                    <div className="relative h-2 bg-gray-100 rounded-full">
-                      <div className="absolute h-2 bg-blue-600 rounded-full" style={{ width: `${((stat.avg - 1) / 4) * 100}%` }} />
-                    </div>
+                    <div className="flex justify-between text-xs text-gray-400 mb-1"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>
+                    <div className="relative h-2 bg-gray-100 rounded-full"><div className="absolute h-2 bg-blue-600 rounded-full" style={{ width: `${((stat.avg - 1) / 4) * 100}%` }} /></div>
                   </div>
                   <div className="h-32">
                     <ResponsiveContainer width="100%" height="100%">
@@ -348,110 +391,38 @@ export default function AnalysisPage() {
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                         <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                         <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                        <Tooltip formatter={(v: any) => [v, 'Kişi']} labelFormatter={(l: any) => scaleLabels[parseInt(l)]} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb', boxShadow: 'none' }} />
+                        <Tooltip formatter={(v: any) => [v, 'Kişi']} labelFormatter={(l: any) => scaleLabels[parseInt(l)]} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
                         <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                           {stat.barData.map((_, idx) => <Cell key={idx} fill={['#ef4444','#f97316','#eab308','#22c55e','#2563eb'][idx]} />)}
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
-                  <div className="flex justify-between text-xs text-gray-400 mt-1">
-                    <span>Kesinlikle Katılmıyorum</span><span>Kesinlikle Katılıyorum</span>
-                  </div>
                 </div>
               ))}
-              <div className="p-6">
-                <h3 className="text-sm font-semibold text-gray-700 mb-4">Tüm Sorular Karşılaştırması</h3>
-                <div className="h-56">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={scaleStats.map((s, i) => ({ name: `S${i + 1}`, avg: parseFloat(s.avg.toFixed(2)), text: s.text }))} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                      <YAxis domain={[0, 5]} ticks={[1,2,3,4,5]} tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                      <Tooltip labelFormatter={(l: any) => l} formatter={(v: any) => [v, 'Ortalama']} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb', boxShadow: 'none', maxWidth: 280 }} />
-                      <Bar dataKey="avg" fill="#2563eb" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
             </div>
           )}
 
-          {/* BİLGİ SORULARI */}
+          {/* BİLGİ SEKMESİ */}
           {activeTab === 'knowledge' && (
-            <div className="p-6 space-y-4">
-              {/* Genel skor özeti */}
+            <div className="p-6 space-y-6">
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-4">
-                <div className="text-center sm:text-left">
-                  <div className="text-3xl font-bold text-blue-600">%{Math.round(avgKnowledgeScore)}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">Ortalama doğru oranı</div>
-                </div>
-                <div className="flex-1">
-                  <div className="w-full bg-blue-100 rounded-full h-3">
-                    <div className="bg-blue-600 h-3 rounded-full" style={{ width: `${avgKnowledgeScore}%` }} />
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-400 mt-1">
-                    <span>En zor soru: {mcStats.sort((a,b) => a.correctPercent - b.correctPercent)[0]?.text.slice(0,40)}...</span>
-                  </div>
-                </div>
+                <div className="text-center sm:text-left"><div className="text-3xl font-bold text-blue-600">%{Math.round(avgKnowledgeScore)}</div><div className="text-xs text-gray-500 mt-0.5">Ortalama doğru oranı</div></div>
+                <div className="flex-1"><div className="w-full bg-blue-100 rounded-full h-3"><div className="bg-blue-600 h-3 rounded-full" style={{ width: `${avgKnowledgeScore}%` }} /></div></div>
               </div>
-
-              {/* Soru bazlı doğru oranları */}
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={mcStats.map((s, i) => ({ name: `S${i + 1}`, doğru: s.correctPercent, text: s.text }))}
-                    margin={{ top: 5, right: 10, left: -10, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                    <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} unit="%" />
-                    <Tooltip
-                      labelFormatter={(l: any) => l}
-                      formatter={(v: any) => [`%${v}`, 'Doğru oranı']}
-                      contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb', boxShadow: 'none', maxWidth: 280 }}
-                    />
-                    <Bar dataKey="doğru" radius={[4, 4, 0, 0]}>
-                      {mcStats.map((s, i) => (
-                        <Cell key={i} fill={s.correctPercent >= 70 ? '#22c55e' : s.correctPercent >= 40 ? '#f97316' : '#ef4444'} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <p className="text-xs text-gray-400 text-center">🟢 %70+ kolay &nbsp;🟠 %40-70 orta &nbsp;🔴 %40 altı zor</p>
-
-              {/* Her soru detayı */}
-              <div className="space-y-4 mt-2">
+              <div className="space-y-4">
                 {mcStats.map((stat, i) => (
                   <div key={stat.id} className="border border-gray-100 rounded-xl overflow-hidden">
-                    <div className={`px-4 py-3 flex items-center justify-between gap-3 ${
-                      stat.correctPercent >= 70 ? 'bg-green-50' : stat.correctPercent >= 40 ? 'bg-orange-50' : 'bg-red-50'
-                    }`}>
-                      <p className="text-sm font-medium text-gray-700 flex-1">
-                        <span className="text-gray-400 mr-2">{i + 1}.</span>{stat.text}
-                      </p>
-                      <div className="flex-shrink-0 text-right">
-                        <span className={`text-lg font-bold ${stat.correctPercent >= 70 ? 'text-green-600' : stat.correctPercent >= 40 ? 'text-orange-500' : 'text-red-500'}`}>
-                          %{stat.correctPercent}
-                        </span>
-                        <div className="text-xs text-gray-400">doğru</div>
-                      </div>
+                    <div className={`px-4 py-3 flex items-center justify-between ${stat.correctPercent >= 70 ? 'bg-green-50' : 'bg-orange-50'}`}>
+                      <p className="text-sm font-medium text-gray-700"><span className="text-gray-400 mr-2">{i + 1}.</span>{stat.text}</p>
+                      <span className="text-sm font-bold text-gray-600">%{stat.correctPercent}</span>
                     </div>
                     <div className="p-4 space-y-2">
                       {stat.optionCounts.map(opt => (
-                        <div key={opt.label} className={`flex items-center gap-3 p-2.5 rounded-lg ${opt.correct ? 'bg-green-50 border border-green-100' : 'bg-gray-50'}`}>
-                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-                            opt.correct ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'
-                          }`}>{opt.label}</span>
-                          <span className={`text-xs flex-1 ${opt.correct ? 'text-green-700 font-medium' : 'text-gray-600'}`}>{opt.text}</span>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <div className="w-16 bg-gray-200 rounded-full h-1.5">
-                              <div className={`h-1.5 rounded-full ${opt.correct ? 'bg-green-500' : 'bg-gray-400'}`}
-                                style={{ width: `${Math.round((opt.count / total) * 100)}%` }} />
-                            </div>
-                            <span className="text-xs text-gray-400 w-8 text-right">{opt.count} kişi</span>
-                          </div>
+                        <div key={opt.label} className={`flex items-center gap-3 p-2 rounded-lg ${opt.correct ? 'bg-green-100/50' : 'bg-gray-50'}`}>
+                          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${opt.correct ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'}`}>{opt.label}</span>
+                          <span className="text-xs flex-1 text-gray-600">{opt.text}</span>
+                          <span className="text-[10px] text-gray-400">{opt.count} kişi</span>
                         </div>
                       ))}
                     </div>
@@ -461,68 +432,49 @@ export default function AnalysisPage() {
             </div>
           )}
 
-          {/* TREND */}
+          {/* TREND SEKMESİ */}
           {activeTab === 'trends' && (
             <div className="p-6 space-y-8">
               {trendData.length < 2 ? (
                 <p className="text-sm text-gray-400 text-center py-8">Trend grafikleri için en az 2 yanıt gerekli.</p>
               ) : (
-                <>
+                <div className="space-y-10">
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-700 mb-1">Likert Ortalaması Trendi</h3>
-                    <p className="text-xs text-gray-400 mb-4">Her yeni yanıtla birlikte likert sorularının ortalama puanı</p>
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Likert Ortalaması Trendi</h3>
                     <div className="h-48">
                       <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={trendData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                          <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                          <YAxis domain={[1, 5]} ticks={[1,2,3,4,5]} tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                          <Tooltip formatter={(v: any) => [v, 'Ort. Puan']} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb', boxShadow: 'none' }} />
-                          <Line type="monotone" dataKey="scaleAvg" stroke="#2563eb" strokeWidth={2} dot={{ fill: '#2563eb', r: 3 }} />
+                        <LineChart data={trendData}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                          <XAxis dataKey="name" hide />
+                          <YAxis domain={[1, 5]} tick={{fontSize: 10}} axisLine={false} />
+                          <Tooltip />
+                          <Line type="monotone" dataKey="scaleAvg" stroke="#2563eb" strokeWidth={2} dot={{r: 3}} />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
-
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-700 mb-1">Bilgi Skoru Trendi</h3>
-                    <p className="text-xs text-gray-400 mb-4">Her yanıtta kaç bilgi sorusu doğru cevaplanmış (maks. {mcQuestions.length})</p>
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Bilgi Skoru Trendi</h3>
                     <div className="h-48">
                       <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={trendData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                          <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                          <YAxis domain={[0, mcQuestions.length]} tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                          <Tooltip formatter={(v: any) => [v, 'Doğru Sayısı']} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb', boxShadow: 'none' }} />
-                          <Line type="monotone" dataKey="knowledgeScore" stroke="#22c55e" strokeWidth={2} dot={{ fill: '#22c55e', r: 3 }} />
+                        <LineChart data={trendData}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                          <XAxis dataKey="name" hide />
+                          <YAxis domain={[0, mcQuestions.length]} tick={{fontSize: 10}} axisLine={false} />
+                          <Tooltip />
+                          <Line type="monotone" dataKey="knowledgeScore" stroke="#22c55e" strokeWidth={2} dot={{r: 3}} />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
-
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-700 mb-1">Evet Sayısı Trendi</h3>
-                    <p className="text-xs text-gray-400 mb-4">Her yanıtta kaç soruya Evet denildi (maks. {yesNoQuestions.length})</p>
-                    <div className="h-48">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={trendData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                          <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                          <YAxis domain={[0, yesNoQuestions.length]} tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                          <Tooltip formatter={(v: any) => [v, 'Evet Sayısı']} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb', boxShadow: 'none' }} />
-                          <Line type="monotone" dataKey="yesCount" stroke="#f97316" strokeWidth={2} dot={{ fill: '#f97316', r: 3 }} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-                </>
+                </div>
               )}
             </div>
           )}
         </div>
 
         <div className="text-center text-xs text-gray-400 py-2">
-          Toplam {total} yanıt · Son: {formatDate(responses[responses.length - 1].submitted_at)}
+          Toplam {total} yanıt · Son Güncelleme: {formatDate(new Date().toISOString())}
         </div>
       </div>
     </div>

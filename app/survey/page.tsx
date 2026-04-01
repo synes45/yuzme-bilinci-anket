@@ -1,17 +1,28 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { yesNoQuestions, scaleQuestions, mcQuestions, scaleLabels, Answers } from '@/lib/questions'
-import { saveResponse, hasCompleted, markCompleted } from '@/lib/storage'
+import { saveResponseToDB as saveResponse } from '@/lib/appwrite' 
+import { hasCompleted, markCompleted } from '@/lib/storage'
 
 export default function SurveyPage() {
   const [answers, setAnswers] = useState<Answers>({})
+  const [age, setAge] = useState<string>('0')
+  const [gender, setGender] = useState<string>('Belirtilmemiş')
   const [errors, setErrors] = useState<string[]>([])
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [startedAt] = useState(() => new Date().toISOString())
   const [alreadyCompleted] = useState(() => hasCompleted())
+
+  // İlk sayfadan kaydedilen demografik verileri çekiyoruz
+  useEffect(() => {
+    const savedAge = localStorage.getItem('user_age')
+    const savedGender = localStorage.getItem('user_gender')
+    if (savedAge) setAge(savedAge)
+    if (savedGender) setGender(savedGender)
+  }, [])
 
   const totalQuestions = yesNoQuestions.length + scaleQuestions.length + mcQuestions.length
   const answeredCount = Object.keys(answers).length
@@ -27,16 +38,25 @@ export default function SurveyPage() {
     yesNoQuestions.forEach(q => { if (!(q.id in answers)) missing.push(q.id) })
     scaleQuestions.forEach(q => { if (!(q.id in answers)) missing.push(q.id) })
     mcQuestions.forEach(q => { if (!(q.id in answers)) missing.push(q.id) })
+    
     if (missing.length > 0) {
       setErrors(missing)
       document.getElementById(missing[0])?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       return
     }
+
     setLoading(true)
-    await saveResponse(answers, startedAt)
-    markCompleted()
-    setLoading(false)
-    setSubmitted(true)
+    try {
+      // Appwrite'a hem cevapları hem de ilk sayfadan gelen age/gender'ı gönderiyoruz
+      await saveResponse(answers, startedAt, age, gender)
+      markCompleted()
+      setSubmitted(true)
+    } catch (error) {
+      console.error("Kayıt hatası:", error)
+      alert("Cevaplar kaydedilirken bir hata oluştu.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (alreadyCompleted) {

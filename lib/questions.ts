@@ -71,7 +71,7 @@ export const mcQuestions: MultipleChoiceQuestion[] = [
     text: 'Sığ sulara (derinliği bilinmeyen) balıklama atlamanın en büyük riski nedir?',
     options: [
       { id: 'mc6a', text: 'Ani su yutulmasına bağlı boğulma refleksi.', correct: false },
-      { id: 'mc6b', text: 'Boyun ve omurilikte hasar..', correct: true },
+      { id: 'mc6b', text: 'Boyun ve omurilikte hasar.', correct: true },
       { id: 'mc6c', text: 'Kulak zarının patlaması.', correct: false },
     ]
   },

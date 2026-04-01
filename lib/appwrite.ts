@@ -15,20 +15,38 @@ export type SurveyResponse = {
     started_at: string;
     submitted_at: string;
     duration_ms: number;
+    age: string;    
+    gender: string; 
+    // Analiz sayfasının mutlu olması için bu yapıyı koruyoruz
+    demographics?: {
+        age: number;
+        gender: string;
+    };
 }
 
 // Veri Kaydetme
-export async function saveResponseToDB(response: SurveyResponse) {
+// Veri Kaydetme - Parametreleri tek tek alacak şekilde güncelledik
+export async function saveResponseToDB(
+    answers: Record<string, string | number>, 
+    startedAt: string, 
+    age: string, 
+    gender: string
+) {
     try {
+        const submitted_at = new Date().toISOString();
+        const duration_ms = new Date(submitted_at).getTime() - new Date(startedAt).getTime();
+
         await databases.createDocument(
             DATABASE_ID,
             COLLECTION_ID,
             ID.unique(),
             {
-                answers: JSON.stringify(response.answers), // Obje -> String dönüşümü
-                started_at: response.started_at,
-                submitted_at: response.submitted_at,
-                duration_ms: response.duration_ms
+                answers: JSON.stringify(answers),
+                started_at: startedAt,
+                submitted_at: submitted_at,
+                duration_ms: duration_ms,
+                age: String(age),
+                gender: gender 
             }
         );
     } catch (error) {
@@ -37,17 +55,34 @@ export async function saveResponseToDB(response: SurveyResponse) {
     }
 }
 
-// Verileri Çekme (Analiz sayfası için)
-export async function getAllResponsesFromDB() {
+// Verileri Çekme (Analiz sayfası için optimize edildi)
+export async function getAllResponsesFromDB(): Promise<SurveyResponse[]> {
     try {
-        const response = await databases.listDocuments(DATABASE_ID, COLLECTION_ID);
-        return response.documents.map(doc => ({
-            id: doc.$id,
-            answers: JSON.parse(doc.answers), // String -> Obje dönüşümü
-            started_at: doc.started_at,
-            submitted_at: doc.submitted_at,
-            duration_ms: doc.duration_ms
-        })) as SurveyResponse[];
+        const response = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [
+            Query.limit(100) // Daha fazla veri için limiti artırabilirsin
+        ]);
+        
+        return response.documents.map(doc => {
+            // Yaş verisini sayıya çeviriyoruz (Analiz sayfasındaki grafikler için)
+            const ageNum = parseInt(doc.age) || 0;
+            const genderStr = doc.gender || "Belirtilmemiş";
+
+            return {
+                id: doc.$id,
+                answers: JSON.parse(doc.answers),
+                started_at: doc.started_at,
+                submitted_at: doc.submitted_at,
+                duration_ms: doc.duration_ms,
+                age: doc.age || "0",
+                gender: genderStr,
+                // KRİTİK NOKTA: Analiz sayfasındaki r.demographics?.age hatasını 
+                // burada objeyi oluşturarak çözüyoruz.
+                demographics: {
+                    age: ageNum,
+                    gender: genderStr
+                }
+            };
+        }) as SurveyResponse[];
     } catch (error) {
         console.error("Veri çekme hatası:", error);
         return [];
@@ -57,11 +92,12 @@ export async function getAllResponsesFromDB() {
 // Tüm Verileri Silme
 export async function clearAllFromDB() {
     try {
-        const docs = await databases.listDocuments(DATABASE_ID, COLLECTION_ID);
+        const docs = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [Query.limit(100)]);
         for (const doc of docs.documents) {
             await databases.deleteDocument(DATABASE_ID, COLLECTION_ID, doc.$id);
         }
     } catch (error) {
         console.error("Silme hatası:", error);
+        throw error;
     }
 }
